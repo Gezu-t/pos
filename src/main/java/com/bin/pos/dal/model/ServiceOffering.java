@@ -16,10 +16,14 @@ import java.time.LocalDateTime;
 public class ServiceOffering {
     @Id
     private String serviceId;
+
     private String name;
     private String description;
+    private String category;
     private BigDecimal price;
     private int durationMinutes;
+    private boolean active;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
