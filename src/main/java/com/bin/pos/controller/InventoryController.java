@@ -1,6 +1,5 @@
 package com.bin.pos.controller;
 
-
 import com.bin.pos.dal.model.InventoryItem;
 import com.bin.pos.service.InventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +51,8 @@ public class InventoryController {
     public ResponseEntity<InventoryItem> createItem(@RequestBody InventoryItem item) {
         return ResponseEntity.status(HttpStatus.CREATED).body(inventoryService.createItem(item));
     }
+
+
 
     @PutMapping("/{itemId}/quantity")
     public ResponseEntity<Void> updateItemQuantity(
