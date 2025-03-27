@@ -16,8 +16,5 @@ public interface InventoryMovementRepository extends JpaRepository<InventoryMove
     List<InventoryMovement> findByMovementType(MovementType movementType);
 
     @Query("SELECT m FROM InventoryMovement m WHERE m.item.itemId = :itemId AND m.timestamp BETWEEN :start AND :end")
-    List<InventoryMovement> findByItemAndDateRange(
-            @Param("itemId") String itemId,
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+    List<InventoryMovement> findByItemAndDateRange(@Param("itemId") String itemId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
