@@ -57,9 +57,6 @@ public class SalesService {
 
     @Transactional
     public SalesTransaction createTransaction(SalesTransaction transaction) {
-        if (transaction.getTransactionId() == null || transaction.getTransactionId().isEmpty()) {
-            transaction.setTransactionId(UUID.randomUUID().toString());
-        }
         transaction.setCreationTime(LocalDateTime.now());
         transaction.setStatus(TransactionStatus.DRAFT);
         return salesRepository.save(transaction);

@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ServiceOffering {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String serviceId;
 
     private String name;

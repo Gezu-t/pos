@@ -14,8 +14,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class Supplier {
     @Id
-    private String supplierId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    private String supplierId;
     private String name;
     private String contactPerson;
     private String email;
