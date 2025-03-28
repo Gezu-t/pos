@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "order_transactions")
@@ -34,13 +36,17 @@ public class OrderTransaction {
     private String shippingAddress;
     private String trackingNumber;
 
-    private BigDecimal subtotal;
-    private BigDecimal shippingCost;
-    private BigDecimal taxAmount;
-    private BigDecimal totalAmount;
+    private BigDecimal subtotal = BigDecimal.ZERO;
+    private BigDecimal shippingCost = BigDecimal.ZERO;
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+    private BigDecimal taxRate = BigDecimal.valueOf(0.0);
 
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
 
     private String notes;
 
@@ -56,5 +62,26 @@ public class OrderTransaction {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    // Helper methods for calculations
+    public BigDecimal calculateSubtotal() {
+        if (items == null || items.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        return items.stream()
+                .map(OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal calculateTaxAmount() {
+        return calculateSubtotal().multiply(taxRate != null ? taxRate : BigDecimal.ZERO);
+    }
+
+    public BigDecimal calculateTotal() {
+        return calculateSubtotal()
+                .add(calculateTaxAmount())
+                .add(shippingCost != null ? shippingCost : BigDecimal.ZERO);
     }
 }

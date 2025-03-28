@@ -71,7 +71,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction addItemToOrder(Long orderId, String itemId, int quantity, BigDecimal unitPrice) {
+    public OrderTransaction addItemToOrder(Long orderId, Long itemId, int quantity, BigDecimal unitPrice) {
         Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
         Optional<InventoryItem> itemOpt = inventoryRepository.findById(itemId);
 
@@ -91,6 +91,7 @@ public class OrderService {
             orderItem.setQuantity(quantity);
             orderItem.setUnitPrice(unitPrice != null ? unitPrice : item.getPrice());
             orderItem.setDiscountAmount(BigDecimal.ZERO);
+            order.getItems().add(orderItem);
 
             // Reevaluate totals
             recalculateOrderTotals(order);
@@ -102,19 +103,38 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction addItemToOrderByOrderId(String orderId, String itemId, int quantity, BigDecimal unitPrice) {
+    public OrderTransaction addItemToOrderByIds(String orderId, String itemId, int quantity, BigDecimal unitPrice) {
         Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+        Optional<InventoryItem> itemOpt = inventoryRepository.findByItemId(itemId);
 
-        if (orderOpt.isPresent()) {
-            return addItemToOrder(orderOpt.get().getId(), itemId, quantity, unitPrice);
+        if (orderOpt.isPresent() && itemOpt.isPresent()) {
+            return addItemToOrder(orderOpt.get().getId(), itemOpt.get().getId(), quantity, unitPrice);
         }
 
         return null;
     }
 
     private void recalculateOrderTotals(OrderTransaction order) {
-        // Implementation would calculate subtotal, tax, and total amount
-        // This is simplified for this example
+        // Calculate subtotal
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (OrderItem item : order.getItems()) {
+            BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            subtotal = subtotal.add(itemTotal.subtract(item.getDiscountAmount()));
+        }
+
+        // Set calculated values
+        order.setSubtotal(subtotal);
+
+        // Calculate tax if applicable
+        if (order.getTaxRate() != null) {
+            BigDecimal taxAmount = subtotal.multiply(order.getTaxRate());
+            order.setTaxAmount(taxAmount);
+        } else {
+            order.setTaxAmount(BigDecimal.ZERO);
+        }
+
+        // Calculate total
+        order.setTotalAmount(order.getSubtotal().add(order.getTaxAmount()));
     }
 
     @Transactional

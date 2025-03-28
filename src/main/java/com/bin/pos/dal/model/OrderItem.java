@@ -1,12 +1,12 @@
 package com.bin.pos.dal.model;
 
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "order_items")
@@ -27,11 +27,27 @@ public class OrderItem {
     private InventoryItem item;
 
     private int quantity;
+
     private BigDecimal unitPrice;
-    private BigDecimal discountAmount;
+
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     public BigDecimal getSubtotal() {
-        BigDecimal rawSubtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
-        return discountAmount != null ? rawSubtotal.subtract(discountAmount) : rawSubtotal;
+        BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        return itemTotal.subtract(discountAmount);
+    }
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
