@@ -9,8 +9,18 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CustomerRepository extends JpaRepository<Customer, String> {
-    List<Customer> findByType(CustomerType type);
+public interface CustomerRepository extends JpaRepository<Customer, Long> {
+
+    // Find by business identifier
+    Optional<Customer> findByCustomerId(String customerId);
+
     Optional<Customer> findByEmail(String email);
-    List<Customer> findByNameContainingIgnoreCase(String namePart);
+
+    List<Customer> findByNameContainingIgnoreCase(String searchTerm);
+
+    List<Customer> findByType(CustomerType type);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByCustomerId(String customerId);
 }
