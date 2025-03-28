@@ -1,6 +1,5 @@
 package com.bin.pos.service;
 
-
 import com.bin.pos.dal.model.*;
 import com.bin.pos.dal.repository.InventoryRepository;
 import com.bin.pos.dal.repository.PaymentRepository;
@@ -39,8 +38,12 @@ public class SalesService {
         return salesRepository.findAll();
     }
 
-    public Optional<SalesTransaction> getTransactionById(String transactionId) {
-        return salesRepository.findById(transactionId);
+    public Optional<SalesTransaction> getTransactionById(Long id) {
+        return salesRepository.findById(id);
+    }
+
+    public Optional<SalesTransaction> getTransactionByTransactionId(String transactionId) {
+        return salesRepository.findByTransactionId(transactionId);
     }
 
     public List<SalesTransaction> getTransactionsByCustomer(String customerId) {
@@ -57,13 +60,17 @@ public class SalesService {
 
     @Transactional
     public SalesTransaction createTransaction(SalesTransaction transaction) {
+        // Generate a business identifier if not provided
+        if (transaction.getTransactionId() == null || transaction.getTransactionId().isEmpty()) {
+            transaction.setTransactionId("TRX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        }
         transaction.setCreationTime(LocalDateTime.now());
         transaction.setStatus(TransactionStatus.DRAFT);
         return salesRepository.save(transaction);
     }
 
     @Transactional
-    public SalesTransaction addItemToTransaction(String transactionId, String itemId, int quantity, BigDecimal unitPrice) {
+    public SalesTransaction addItemToTransaction(Long transactionId, Long itemId, int quantity, BigDecimal unitPrice) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
         Optional<InventoryItem> itemOpt = inventoryRepository.findById(itemId);
 
@@ -73,7 +80,7 @@ public class SalesService {
 
             // Check if item is already in the transaction
             Optional<TransactionItem> existingItem = transaction.getItems().stream()
-                    .filter(i -> i.getItem().getItemId().equals(itemId))
+                    .filter(i -> i.getItem().getId().equals(itemId))
                     .findFirst();
 
             if (existingItem.isPresent()) {
@@ -98,7 +105,19 @@ public class SalesService {
     }
 
     @Transactional
-    public boolean removeItemFromTransaction(String transactionId, Long transactionItemId) {
+    public SalesTransaction addItemToTransactionByIds(String transactionId, String itemId, int quantity, BigDecimal unitPrice) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        Optional<InventoryItem> itemOpt = inventoryRepository.findByItemId(itemId);
+
+        if (transactionOpt.isPresent() && itemOpt.isPresent()) {
+            return addItemToTransaction(transactionOpt.get().getId(), itemOpt.get().getId(), quantity, unitPrice);
+        }
+
+        return null;
+    }
+
+    @Transactional
+    public boolean removeItemFromTransaction(Long transactionId, Long transactionItemId) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
 
         if (transactionOpt.isPresent()) {
@@ -115,7 +134,16 @@ public class SalesService {
     }
 
     @Transactional
-    public SalesTransaction updateItemQuantity(String transactionId, Long transactionItemId, int newQuantity) {
+    public boolean removeItemFromTransactionByTransactionId(String transactionId, Long transactionItemId) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            return removeItemFromTransaction(transactionOpt.get().getId(), transactionItemId);
+        }
+        return false;
+    }
+
+    @Transactional
+    public SalesTransaction updateItemQuantity(Long transactionId, Long transactionItemId, int newQuantity) {
         if (newQuantity < 1) {
             return null;
         }
@@ -136,7 +164,16 @@ public class SalesService {
     }
 
     @Transactional
-    public SalesTransaction applyDiscount(String transactionId, Long transactionItemId, BigDecimal discountAmount) {
+    public SalesTransaction updateItemQuantityByTransactionId(String transactionId, Long transactionItemId, int newQuantity) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            return updateItemQuantity(transactionOpt.get().getId(), transactionItemId, newQuantity);
+        }
+        return null;
+    }
+
+    @Transactional
+    public SalesTransaction applyDiscount(Long transactionId, Long transactionItemId, BigDecimal discountAmount) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
 
         if (transactionOpt.isPresent()) {
@@ -153,7 +190,16 @@ public class SalesService {
     }
 
     @Transactional
-    public SalesTransaction processPayment(String transactionId, PaymentMethod paymentMethod, BigDecimal amount, String referenceNumber) {
+    public SalesTransaction applyDiscountByTransactionId(String transactionId, Long transactionItemId, BigDecimal discountAmount) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            return applyDiscount(transactionOpt.get().getId(), transactionItemId, discountAmount);
+        }
+        return null;
+    }
+
+    @Transactional
+    public SalesTransaction processPayment(Long transactionId, PaymentMethod paymentMethod, BigDecimal amount, String referenceNumber) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
 
         if (transactionOpt.isPresent()) {
@@ -183,11 +229,9 @@ public class SalesService {
             transaction.setCompletionTime(LocalDateTime.now());
 
             // Update inventory quantities
-            transaction.getItems().forEach(item -> {
-                inventoryService.updateItemQuantity(
-                        item.getItem().getItemId(),
-                        -item.getQuantity());
-            });
+            for (TransactionItem item : transaction.getItems()) {
+                inventoryService.updateItemQuantity(item.getItem().getId(), -item.getQuantity());
+            }
 
             return salesRepository.save(transaction);
         }
@@ -196,7 +240,16 @@ public class SalesService {
     }
 
     @Transactional
-    public SalesTransaction voidTransaction(String transactionId) {
+    public SalesTransaction processPaymentByTransactionId(String transactionId, PaymentMethod paymentMethod, BigDecimal amount, String referenceNumber) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            return processPayment(transactionOpt.get().getId(), paymentMethod, amount, referenceNumber);
+        }
+        return null;
+    }
+
+    @Transactional
+    public SalesTransaction voidTransaction(Long transactionId) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
 
         if (transactionOpt.isPresent()) {
@@ -214,7 +267,20 @@ public class SalesService {
     }
 
     @Transactional
-    public SalesTransaction processReturn(String transactionId) {
+    public SalesTransaction voidTransactionByTransactionId(String transactionId) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            try {
+                return voidTransaction(transactionOpt.get().getId());
+            } catch (IllegalStateException e) {
+                throw e;
+            }
+        }
+        return null;
+    }
+
+    @Transactional
+    public SalesTransaction processReturn(Long transactionId) {
         Optional<SalesTransaction> transactionOpt = salesRepository.findById(transactionId);
 
         if (transactionOpt.isPresent()) {
@@ -232,11 +298,9 @@ public class SalesService {
                 paymentRepository.save(refund);
 
                 // Update inventory quantities
-                transaction.getItems().forEach(item -> {
-                    inventoryService.updateItemQuantity(
-                            item.getItem().getItemId(),
-                            item.getQuantity());
-                });
+                for (TransactionItem item : transaction.getItems()) {
+                    inventoryService.updateItemQuantity(item.getItem().getId(), item.getQuantity());
+                }
 
                 // Update transaction status
                 transaction.setStatus(TransactionStatus.RETURNED);
@@ -246,6 +310,19 @@ public class SalesService {
             }
         }
 
+        return null;
+    }
+
+    @Transactional
+    public SalesTransaction processReturnByTransactionId(String transactionId) {
+        Optional<SalesTransaction> transactionOpt = salesRepository.findByTransactionId(transactionId);
+        if (transactionOpt.isPresent()) {
+            try {
+                return processReturn(transactionOpt.get().getId());
+            } catch (IllegalStateException e) {
+                throw e;
+            }
+        }
         return null;
     }
 }

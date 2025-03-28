@@ -4,13 +4,11 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Entity
 @Table(name = "sales_transactions")
@@ -18,43 +16,96 @@ import java.util.Optional;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SalesTransaction {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
     private String transactionId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
     private Customer customer;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime creationTime = LocalDateTime.now();
-
+    private LocalDateTime creationTime;
     private LocalDateTime completionTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TransactionStatus status = TransactionStatus.PENDING;
+    private TransactionStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private PaymentMethod paymentMethod;
 
-    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    @OneToMany(mappedBy = "salesTransaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @ToString.Exclude
+    // Products in the transaction
+    @OneToMany(mappedBy = "salesTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TransactionItem> items = new ArrayList<>();
 
-    public BigDecimal getTotal() {
-        return Optional.ofNullable(items)
-                .orElseGet(ArrayList::new)
-                .stream()
+    // Services in the transaction
+    @OneToMany(mappedBy = "salesTransaction", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ServiceTransactionItem> serviceItems = new ArrayList<>();
+
+    // For tax calculations
+    private BigDecimal taxRate = BigDecimal.valueOf(0.0);
+    private BigDecimal subtotal = BigDecimal.ZERO;
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    private String notes;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public BigDecimal getProductSubtotal() {
+        if (items == null || items.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        return items.stream()
                 .map(TransactionItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal getServiceSubtotal() {
+        if (serviceItems == null || serviceItems.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        return serviceItems.stream()
+                .map(ServiceTransactionItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal getSubtotal() {
+        return getProductSubtotal().add(getServiceSubtotal());
+    }
+
+    public BigDecimal getTaxAmount() {
+        return getSubtotal().multiply(taxRate != null ? taxRate : BigDecimal.ZERO);
+    }
+
+    public BigDecimal getTotal() {
+        return getSubtotal().add(getTaxAmount());
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+
+        // Update calculated fields
+        this.subtotal = getSubtotal();
+        this.taxAmount = getTaxAmount();
+        this.totalAmount = getTotal();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+
+        // Update calculated fields
+        this.subtotal = getSubtotal();
+        this.taxAmount = getTaxAmount();
+        this.totalAmount = getTotal();
     }
 }

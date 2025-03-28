@@ -18,26 +18,39 @@ public class PaymentTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column (name = "payment_id")
     private String paymentId;
+
     @ManyToOne
     @JoinColumn(name = "sales_transaction_id")
     private SalesTransaction salesTransaction;
 
-    private BigDecimal amount;
-
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
+
+    private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
+    private String referenceNumber;
+
     private LocalDateTime paymentTime;
 
-    private String referenceNumber;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        paymentTime = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+
+        if (paymentTime == null) {
+            paymentTime = LocalDateTime.now();
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

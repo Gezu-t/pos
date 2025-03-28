@@ -5,11 +5,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
-public interface ServiceRepository extends JpaRepository<ServiceOffering, String> {
-    List<ServiceOffering> findByCategory(String category);
-    List<ServiceOffering> findByNameContainingIgnoreCase(String namePart);
-    List<ServiceOffering> findByActive(boolean active);
-}
+public interface ServiceRepository extends JpaRepository<ServiceOffering, Long> {
 
+    // Find by business identifier
+    Optional<ServiceOffering> findByServiceId(String serviceId);
+
+    List<ServiceOffering> findByActive(boolean active);
+
+    List<ServiceOffering> findByNameContainingIgnoreCase(String searchTerm);
+
+    List<ServiceOffering> findByCategory(String category);
+
+    boolean existsByServiceId(String serviceId);
+}
