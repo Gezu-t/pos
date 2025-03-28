@@ -37,8 +37,12 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
-    public Optional<OrderTransaction> getOrderById(String orderId) {
-        return orderRepository.findById(orderId);
+    public Optional<OrderTransaction> getOrderById(Long id) {
+        return orderRepository.findById(id);
+    }
+
+    public Optional<OrderTransaction> getOrderByOrderId(String orderId) {
+        return orderRepository.findByOrderId(orderId);
     }
 
     public List<OrderTransaction> getOrdersByCustomer(String customerId) {
@@ -55,9 +59,11 @@ public class OrderService {
 
     @Transactional
     public OrderTransaction createOrder(OrderTransaction order) {
+        // Generate a unique orderId (business identifier) if not provided
         if (order.getOrderId() == null || order.getOrderId().isEmpty()) {
-            order.setOrderId(UUID.randomUUID().toString());
+            order.setOrderId("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
+
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING);
 
@@ -65,7 +71,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction addItemToOrder(String orderId, String itemId, int quantity, BigDecimal unitPrice) {
+    public OrderTransaction addItemToOrder(Long orderId, String itemId, int quantity, BigDecimal unitPrice) {
         Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
         Optional<InventoryItem> itemOpt = inventoryRepository.findById(itemId);
 
@@ -95,14 +101,25 @@ public class OrderService {
         return null;
     }
 
+    @Transactional
+    public OrderTransaction addItemToOrderByOrderId(String orderId, String itemId, int quantity, BigDecimal unitPrice) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+
+        if (orderOpt.isPresent()) {
+            return addItemToOrder(orderOpt.get().getId(), itemId, quantity, unitPrice);
+        }
+
+        return null;
+    }
+
     private void recalculateOrderTotals(OrderTransaction order) {
         // Implementation would calculate subtotal, tax, and total amount
         // This is simplified for this example
     }
 
     @Transactional
-    public OrderTransaction updateOrderStatus(String orderId, OrderStatus status) {
-        Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
+    public OrderTransaction updateOrderStatus(Long id, OrderStatus status) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findById(id);
 
         if (orderOpt.isPresent()) {
             OrderTransaction order = orderOpt.get();
@@ -120,8 +137,19 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction updateTrackingInfo(String orderId, String trackingNumber) {
-        Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
+    public OrderTransaction updateOrderStatusByOrderId(String orderId, OrderStatus status) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+
+        if (orderOpt.isPresent()) {
+            return updateOrderStatus(orderOpt.get().getId(), status);
+        }
+
+        return null;
+    }
+
+    @Transactional
+    public OrderTransaction updateTrackingInfo(Long id, String trackingNumber) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findById(id);
 
         if (orderOpt.isPresent()) {
             OrderTransaction order = orderOpt.get();
@@ -134,8 +162,19 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction cancelOrder(String orderId) {
-        Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
+    public OrderTransaction updateTrackingInfoByOrderId(String orderId, String trackingNumber) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+
+        if (orderOpt.isPresent()) {
+            return updateTrackingInfo(orderOpt.get().getId(), trackingNumber);
+        }
+
+        return null;
+    }
+
+    @Transactional
+    public OrderTransaction cancelOrder(Long id) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findById(id);
 
         if (orderOpt.isPresent()) {
             OrderTransaction order = orderOpt.get();
@@ -152,8 +191,19 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderTransaction processOrderRefund(String orderId) {
-        Optional<OrderTransaction> orderOpt = orderRepository.findById(orderId);
+    public OrderTransaction cancelOrderByOrderId(String orderId) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+
+        if (orderOpt.isPresent()) {
+            return cancelOrder(orderOpt.get().getId());
+        }
+
+        return null;
+    }
+
+    @Transactional
+    public OrderTransaction processOrderRefund(Long id) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findById(id);
 
         if (orderOpt.isPresent()) {
             OrderTransaction order = orderOpt.get();
@@ -164,6 +214,17 @@ public class OrderService {
             } else {
                 throw new IllegalStateException("Cannot refund order that hasn't been delivered or returned");
             }
+        }
+
+        return null;
+    }
+
+    @Transactional
+    public OrderTransaction processOrderRefundByOrderId(String orderId) {
+        Optional<OrderTransaction> orderOpt = orderRepository.findByOrderId(orderId);
+
+        if (orderOpt.isPresent()) {
+            return processOrderRefund(orderOpt.get().getId());
         }
 
         return null;
