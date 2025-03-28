@@ -1,9 +1,7 @@
 package com.bin.pos.dal.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,19 +12,37 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InventoryItem {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String itemId;
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
     private String category;
-    private BigDecimal price;
-    private int quantity;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price = BigDecimal.ZERO;
+
+    @Column(nullable = false)
+    private int quantity = 0;
+
     private String unit;
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
         updatedAt = LocalDateTime.now();
     }
 

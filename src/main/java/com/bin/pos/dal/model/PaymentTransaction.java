@@ -15,10 +15,13 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PaymentTransaction {
     @Id
-    private String paymentId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
+    @Column (name = "payment_id")
+    private String paymentId;
     @ManyToOne
-    @JoinColumn(name = "transaction_id")
+    @JoinColumn(name = "sales_transaction_id")
     private SalesTransaction salesTransaction;
 
     private BigDecimal amount;
