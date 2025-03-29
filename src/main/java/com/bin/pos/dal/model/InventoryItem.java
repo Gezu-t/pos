@@ -18,11 +18,17 @@ public class InventoryItem {
     private Long id;
 
     private String itemId;
-    @Column(nullable = false)
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
+
+    @Column(name = "category", nullable = true)
+    private String category;
+
+    @Column(name = "name", nullable = true)
     private String name;
 
-    @Column(nullable = false)
-    private String category;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;

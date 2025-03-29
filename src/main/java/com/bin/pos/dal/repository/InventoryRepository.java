@@ -11,15 +11,26 @@ import java.util.Optional;
 @Repository
 public interface InventoryRepository extends JpaRepository<InventoryItem, Long> {
 
-    // Find by business identifier
+    // Use JOIN FETCH to eagerly load the product when fetching inventory items
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product")
+    List<InventoryItem> findAll();
+
+    // Use JOIN FETCH for specific item query
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product WHERE i.id = :id")
+    Optional<InventoryItem> findById(Long id);
+
+    // Use JOIN FETCH for itemId query
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product WHERE i.itemId = :itemId")
     Optional<InventoryItem> findByItemId(String itemId);
 
-    List<InventoryItem> findByNameContainingIgnoreCase(String searchTerm);
-
-    List<InventoryItem> findByCategory(String category);
-
-    @Query("SELECT i FROM InventoryItem i WHERE i.quantity <= 10")
+    // Use JOIN FETCH for low stock items
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product WHERE i.quantity < 10")
     List<InventoryItem> findLowStockItems();
 
-    boolean existsByItemId(String itemId);
+    // If you need custom queries for category or search, add them here with JOIN FETCH
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product WHERE i.product.category = :category")
+    List<InventoryItem> findByCategory(String category);
+
+    @Query("SELECT i FROM InventoryItem i JOIN FETCH i.product WHERE LOWER(i.product.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+    List<InventoryItem> searchByProductName(String searchTerm);
 }
