@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -15,26 +14,35 @@ import java.util.Optional;
 @Repository
 public interface SalesRepository extends JpaRepository<SalesTransaction, Long> {
 
-    // Find by business identifier
+    // Find transaction by transactionId with eager loading
+    @Query("SELECT DISTINCT t FROM SalesTransaction t " +
+            "LEFT JOIN FETCH t.customer " +
+            "LEFT JOIN FETCH t.items i " +
+            "LEFT JOIN FETCH i.item " +
+            "WHERE t.transactionId = :transactionId")
+    Optional<SalesTransaction> findByTransactionIdWithDetails(@Param("transactionId") String transactionId);
+
+    // Find transaction by ID with eager loading
+    @Query("SELECT DISTINCT t FROM SalesTransaction t " +
+            "LEFT JOIN FETCH t.customer " +
+            "LEFT JOIN FETCH t.items i " +
+            "LEFT JOIN FETCH i.item " +
+            "WHERE t.id = :id")
+    Optional<SalesTransaction> findByIdWithDetails(@Param("id") Long id);
+
+    // Get all transactions with basic details (excluding items for performance)
+    @Query("SELECT DISTINCT t FROM SalesTransaction t " +
+            "LEFT JOIN FETCH t.customer " +
+            "ORDER BY t.creationTime DESC")
+    List<SalesTransaction> findAllWithBasicDetails();
+
+    // Original methods
     Optional<SalesTransaction> findByTransactionId(String transactionId);
 
     List<SalesTransaction> findByCustomerCustomerId(String customerId);
 
     List<SalesTransaction> findByStatus(TransactionStatus status);
 
-    @Query("SELECT s FROM SalesTransaction s WHERE s.creationTime BETWEEN :startDate AND :endDate")
-    List<SalesTransaction> findTransactionsInPeriod(
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    @Query("SELECT SUM(s.totalAmount) FROM SalesTransaction s WHERE s.status = 'COMPLETED' AND s.completionTime BETWEEN :startDate AND :endDate")
-    BigDecimal calculateRevenueInPeriod(
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
-
-    @Query("SELECT COUNT(s) FROM SalesTransaction s WHERE s.status = :status AND s.creationTime BETWEEN :startDate AND :endDate")
-    Long countTransactionsByStatusInPeriod(
-            @Param("status") TransactionStatus status,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
+    @Query("SELECT t FROM SalesTransaction t WHERE t.creationTime BETWEEN :start AND :end")
+    List<SalesTransaction> findTransactionsInPeriod(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

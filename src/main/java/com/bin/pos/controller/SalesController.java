@@ -1,5 +1,7 @@
 package com.bin.pos.controller;
 
+import com.bin.pos.dal.dto.ApiResponse;
+import com.bin.pos.dal.dto.TransactionDTO;
 import com.bin.pos.dal.model.PaymentMethod;
 import com.bin.pos.dal.model.SalesTransaction;
 import com.bin.pos.dal.model.TransactionStatus;
@@ -14,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sales")
@@ -29,280 +30,405 @@ public class SalesController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<List<SalesTransaction>> getAllTransactions() {
-        return ResponseEntity.ok(salesService.getAllTransactions());
+    public ResponseEntity<?> getAllTransactions() {
+        try {
+            List<TransactionDTO> transactions = salesService.getAllTransactionsAsDTO();
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> getTransactionById(@PathVariable Long id) {
-        return salesService.getTransactionById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> getTransactionById(@PathVariable Long id) {
+        try {
+            return salesService.getTransactionByIdAsDTO(id)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
     }
 
     @GetMapping("/by-transaction-id/{transactionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> getTransactionByTransactionId(@PathVariable String transactionId) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> getTransactionByTransactionId(@PathVariable String transactionId) {
+        try {
+            return salesService.getTransactionByTransactionIdAsDTO(transactionId)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
-        return salesService.getTransactionByTransactionId(transactionId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/customer/{customerId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<List<SalesTransaction>> getTransactionsByCustomer(@PathVariable String customerId) {
-        if (customerId == null || customerId.equals("undefined") || customerId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<?> getTransactionsByCustomer(@PathVariable String customerId) {
+        try {
+            List<TransactionDTO> transactions = salesService.getTransactionsByCustomerAsDTO(customerId);
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
-        return ResponseEntity.ok(salesService.getTransactionsByCustomer(customerId));
     }
 
     @GetMapping("/status/{status}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<List<SalesTransaction>> getTransactionsByStatus(@PathVariable TransactionStatus status) {
-        return ResponseEntity.ok(salesService.getTransactionsByStatus(status));
+    public ResponseEntity<?> getTransactionsByStatus(@PathVariable TransactionStatus status) {
+        try {
+            List<TransactionDTO> transactions = salesService.getTransactionsByStatusAsDTO(status);
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
     }
 
     @GetMapping("/period")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<List<SalesTransaction>> getTransactionsInPeriod(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> getTransactionsInPeriod(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ResponseEntity.ok(salesService.getTransactionsInPeriod(start, end));
+        try {
+            List<TransactionDTO> transactions = salesService.getTransactionsInPeriodAsDTO(start, end);
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> createTransaction(@RequestBody SalesTransaction transaction) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(salesService.createTransaction(transaction));
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> createTransaction(@RequestBody SalesTransaction transaction) {
+        try {
+            SalesTransaction createdTransaction = salesService.createTransaction(transaction);
+            // Convert to DTO for the response
+            TransactionDTO dto = salesService.getTransactionByIdAsDTO(createdTransaction.getId()).orElse(null);
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+        } catch (IllegalArgumentException e) {
+            // Handle validation errors
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            // Handle unexpected errors
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
     }
 
     @PostMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> addItemToTransaction(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> addItemToTransaction(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> request) {
-
+            @RequestParam String itemId,
+            @RequestParam int quantity,
+            @RequestParam(required = false) BigDecimal unitPrice) {
         try {
-            Long itemId = Long.valueOf(request.get("itemId").toString());
-            int quantity = Integer.parseInt(request.get("quantity").toString());
-            BigDecimal unitPrice = request.get("unitPrice") != null ?
-                    new BigDecimal(request.get("unitPrice").toString()) : null;
+            SalesTransaction updatedTransaction = salesService.addItemToTransactionByIds(
+                    id.toString(), itemId, quantity, unitPrice);
 
-            SalesTransaction updated = salesService.addItemToTransaction(id, itemId, quantity, unitPrice);
-            return updated != null ?
-                    ResponseEntity.ok(updated) :
-                    ResponseEntity.badRequest().build();
-        } catch (NumberFormatException | NullPointerException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @PostMapping("/by-transaction-id/{transactionId}/items")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> addItemToTransactionByTransactionId(
-            @PathVariable String transactionId,
-            @RequestBody Map<String, Object> request) {
-
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        try {
-            String itemId = request.get("itemId").toString();
-            int quantity = Integer.parseInt(request.get("quantity").toString());
-            BigDecimal unitPrice = request.get("unitPrice") != null ?
-                    new BigDecimal(request.get("unitPrice").toString()) : null;
-
-            SalesTransaction updated = salesService.addItemToTransactionByIds(transactionId, itemId, quantity, unitPrice);
-            return updated != null ?
-                    ResponseEntity.ok(updated) :
-                    ResponseEntity.badRequest().build();
-        } catch (NumberFormatException | NullPointerException e) {
-            return ResponseEntity.badRequest().build();
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
     }
 
     @DeleteMapping("/{id}/items/{itemId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<Void> removeItemFromTransaction(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> removeItemFromTransaction(
             @PathVariable Long id,
             @PathVariable Long itemId) {
-        boolean removed = salesService.removeItemFromTransaction(id, itemId);
-        return removed ?
-                ResponseEntity.ok().build() :
-                ResponseEntity.badRequest().build();
-    }
+        try {
+            boolean removed = salesService.removeItemFromTransaction(id, itemId);
 
-    @DeleteMapping("/by-transaction-id/{transactionId}/items/{itemId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<Void> removeItemFromTransactionByTransactionId(
-            @PathVariable String transactionId,
-            @PathVariable Long itemId) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            if (removed) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(id).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
-        boolean removed = salesService.removeItemFromTransactionByTransactionId(transactionId, itemId);
-        return removed ?
-                ResponseEntity.ok().build() :
-                ResponseEntity.badRequest().build();
     }
 
     @PutMapping("/{id}/items/{itemId}/quantity")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> updateItemQuantity(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> updateItemQuantity(
             @PathVariable Long id,
             @PathVariable Long itemId,
             @RequestParam int quantity) {
-        SalesTransaction updated = salesService.updateItemQuantity(id, itemId, quantity);
-        return updated != null ?
-                ResponseEntity.ok(updated) :
-                ResponseEntity.badRequest().build();
-    }
+        try {
+            SalesTransaction updatedTransaction = salesService.updateItemQuantity(id, itemId, quantity);
 
-    @PutMapping("/by-transaction-id/{transactionId}/items/{itemId}/quantity")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> updateItemQuantityByTransactionId(
-            @PathVariable String transactionId,
-            @PathVariable Long itemId,
-            @RequestParam int quantity) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
-        SalesTransaction updated = salesService.updateItemQuantityByTransactionId(transactionId, itemId, quantity);
-        return updated != null ?
-                ResponseEntity.ok(updated) :
-                ResponseEntity.badRequest().build();
     }
 
     @PutMapping("/{id}/items/{itemId}/discount")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> applyDiscount(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> applyDiscount(
             @PathVariable Long id,
             @PathVariable Long itemId,
             @RequestParam BigDecimal amount) {
-        SalesTransaction updated = salesService.applyDiscount(id, itemId, amount);
-        return updated != null ?
-                ResponseEntity.ok(updated) :
-                ResponseEntity.badRequest().build();
-    }
+        try {
+            SalesTransaction updatedTransaction = salesService.applyDiscount(id, itemId, amount);
 
-    @PutMapping("/by-transaction-id/{transactionId}/items/{itemId}/discount")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> applyDiscountByTransactionId(
-            @PathVariable String transactionId,
-            @PathVariable Long itemId,
-            @RequestParam BigDecimal amount) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
-        SalesTransaction updated = salesService.applyDiscountByTransactionId(transactionId, itemId, amount);
-        return updated != null ?
-                ResponseEntity.ok(updated) :
-                ResponseEntity.badRequest().build();
     }
 
     @PostMapping("/{id}/payment")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> processPayment(
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> processPayment(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> request) {
-
+            @RequestParam PaymentMethod paymentMethod,
+            @RequestParam BigDecimal amount,
+            @RequestParam(required = false) String referenceNumber) {
         try {
-            PaymentMethod paymentMethod = PaymentMethod.valueOf((String) request.get("paymentMethod"));
-            BigDecimal amount = new BigDecimal(request.get("amount").toString());
-            String referenceNumber = (String) request.get("referenceNumber");
+            SalesTransaction updatedTransaction = salesService.processPayment(id, paymentMethod, amount, referenceNumber);
 
-            SalesTransaction completed = salesService.processPayment(id, paymentMethod, amount, referenceNumber);
-            return ResponseEntity.ok(completed);
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @PostMapping("/by-transaction-id/{transactionId}/payment")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'CASHIER')")
-    public ResponseEntity<SalesTransaction> processPaymentByTransactionId(
-            @PathVariable String transactionId,
-            @RequestBody Map<String, Object> request) {
-
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        try {
-            PaymentMethod paymentMethod = PaymentMethod.valueOf((String) request.get("paymentMethod"));
-            BigDecimal amount = new BigDecimal(request.get("amount").toString());
-            String referenceNumber = (String) request.get("referenceNumber");
-
-            SalesTransaction completed = salesService.processPaymentByTransactionId(transactionId, paymentMethod, amount, referenceNumber);
-            return ResponseEntity.ok(completed);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
     }
 
     @PostMapping("/{id}/void")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> voidTransaction(@PathVariable Long id) {
+    public ResponseEntity<?> voidTransaction(@PathVariable Long id) {
         try {
-            SalesTransaction voided = salesService.voidTransaction(id);
-            return voided != null ?
-                    ResponseEntity.ok(voided) :
-                    ResponseEntity.notFound().build();
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
+            SalesTransaction updatedTransaction = salesService.voidTransaction(id);
 
-    @PostMapping("/by-transaction-id/{transactionId}/void")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> voidTransactionByTransactionId(@PathVariable String transactionId) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        try {
-            SalesTransaction voided = salesService.voidTransactionByTransactionId(transactionId);
-            return voided != null ?
-                    ResponseEntity.ok(voided) :
-                    ResponseEntity.notFound().build();
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
     }
 
     @PostMapping("/{id}/return")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> processReturn(@PathVariable Long id) {
+    public ResponseEntity<?> processReturn(@PathVariable Long id) {
         try {
-            SalesTransaction returned = salesService.processReturn(id);
-            return returned != null ?
-                    ResponseEntity.ok(returned) :
-                    ResponseEntity.notFound().build();
+            SalesTransaction updatedTransaction = salesService.processReturn(id);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    // By transactionId endpoints for convenience
+
+    @PostMapping("/by-transaction-id/{transactionId}/items")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> addItemToTransactionByTransactionId(
+            @PathVariable String transactionId,
+            @RequestParam String itemId,
+            @RequestParam int quantity,
+            @RequestParam(required = false) BigDecimal unitPrice) {
+        try {
+            SalesTransaction updatedTransaction = salesService.addItemToTransactionByIds(
+                    transactionId, itemId, quantity, unitPrice);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    @DeleteMapping("/by-transaction-id/{transactionId}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> removeItemFromTransactionByTransactionId(
+            @PathVariable String transactionId,
+            @PathVariable Long itemId) {
+        try {
+            boolean removed = salesService.removeItemFromTransactionByTransactionId(transactionId, itemId);
+
+            if (removed) {
+                TransactionDTO dto = salesService.getTransactionByTransactionIdAsDTO(transactionId).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    @PutMapping("/by-transaction-id/{transactionId}/items/{itemId}/quantity")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> updateItemQuantityByTransactionId(
+            @PathVariable String transactionId,
+            @PathVariable Long itemId,
+            @RequestParam int quantity) {
+        try {
+            SalesTransaction updatedTransaction = salesService.updateItemQuantityByTransactionId(
+                    transactionId, itemId, quantity);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    @PutMapping("/by-transaction-id/{transactionId}/items/{itemId}/discount")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> applyDiscountByTransactionId(
+            @PathVariable String transactionId,
+            @PathVariable Long itemId,
+            @RequestParam BigDecimal amount) {
+        try {
+            SalesTransaction updatedTransaction = salesService.applyDiscountByTransactionId(
+                    transactionId, itemId, amount);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    @PostMapping("/by-transaction-id/{transactionId}/payment")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<?> processPaymentByTransactionId(
+            @PathVariable String transactionId,
+            @RequestParam PaymentMethod paymentMethod,
+            @RequestParam BigDecimal amount,
+            @RequestParam(required = false) String referenceNumber) {
+        try {
+            SalesTransaction updatedTransaction = salesService.processPaymentByTransactionId(
+                    transactionId, paymentMethod, amount, referenceNumber);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
+        }
+    }
+
+    @PostMapping("/by-transaction-id/{transactionId}/void")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<?> voidTransactionByTransactionId(@PathVariable String transactionId) {
+        try {
+            SalesTransaction updatedTransaction = salesService.voidTransactionByTransactionId(transactionId);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
     }
 
     @PostMapping("/by-transaction-id/{transactionId}/return")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    public ResponseEntity<SalesTransaction> processReturnByTransactionId(@PathVariable String transactionId) {
-        if (transactionId == null || transactionId.equals("undefined") || transactionId.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
+    public ResponseEntity<?> processReturnByTransactionId(@PathVariable String transactionId) {
         try {
-            SalesTransaction returned = salesService.processReturnByTransactionId(transactionId);
-            return returned != null ?
-                    ResponseEntity.ok(returned) :
-                    ResponseEntity.notFound().build();
+            SalesTransaction updatedTransaction = salesService.processReturnByTransactionId(transactionId);
+
+            if (updatedTransaction != null) {
+                TransactionDTO dto = salesService.getTransactionByIdAsDTO(updatedTransaction.getId()).orElse(null);
+                return ResponseEntity.ok(dto);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, e.getMessage(), null, LocalDateTime.now()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "An unexpected error occurred: " + e.getMessage(), null, LocalDateTime.now()));
         }
     }
 }

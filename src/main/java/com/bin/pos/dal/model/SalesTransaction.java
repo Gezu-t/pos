@@ -22,7 +22,7 @@ public class SalesTransaction {
 
     private String transactionId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id")
     private Customer customer;
 

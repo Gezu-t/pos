@@ -1,9 +1,11 @@
 package com.bin.pos.service;
 
+import com.bin.pos.dal.dto.TransactionDTO;
 import com.bin.pos.dal.model.*;
 import com.bin.pos.dal.repository.InventoryRepository;
 import com.bin.pos.dal.repository.PaymentRepository;
 import com.bin.pos.dal.repository.SalesRepository;
+import com.bin.pos.util.DTOConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,19 +23,77 @@ public class SalesService {
     private final InventoryRepository inventoryRepository;
     private final PaymentRepository paymentRepository;
     private final InventoryService inventoryService;
+    private final DTOConverter dtoConverter;
 
     @Autowired
     public SalesService(
             SalesRepository salesRepository,
             InventoryRepository inventoryRepository,
             PaymentRepository paymentRepository,
-            InventoryService inventoryService) {
+            InventoryService inventoryService,
+            DTOConverter dtoConverter) {
         this.salesRepository = salesRepository;
         this.inventoryRepository = inventoryRepository;
         this.paymentRepository = paymentRepository;
         this.inventoryService = inventoryService;
+        this.dtoConverter = dtoConverter;
     }
 
+    /**
+     * Get all transactions as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionDTO> getAllTransactionsAsDTO() {
+        List<SalesTransaction> transactions = salesRepository.findAllWithBasicDetails();
+        return dtoConverter.convertToDTO(transactions);
+    }
+
+    /**
+     * Get transaction by ID as DTO
+     */
+    @Transactional(readOnly = true)
+    public Optional<TransactionDTO> getTransactionByIdAsDTO(Long id) {
+        return salesRepository.findByIdWithDetails(id)
+                .map(dtoConverter::convertToDTO);
+    }
+
+    /**
+     * Get transaction by transaction ID as DTO
+     */
+    @Transactional(readOnly = true)
+    public Optional<TransactionDTO> getTransactionByTransactionIdAsDTO(String transactionId) {
+        return salesRepository.findByTransactionIdWithDetails(transactionId)
+                .map(dtoConverter::convertToDTO);
+    }
+
+    /**
+     * Get all transactions by customer as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionDTO> getTransactionsByCustomerAsDTO(String customerId) {
+        List<SalesTransaction> transactions = salesRepository.findByCustomerCustomerId(customerId);
+        return dtoConverter.convertToDTO(transactions);
+    }
+
+    /**
+     * Get all transactions by status as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionDTO> getTransactionsByStatusAsDTO(TransactionStatus status) {
+        List<SalesTransaction> transactions = salesRepository.findByStatus(status);
+        return dtoConverter.convertToDTO(transactions);
+    }
+
+    /**
+     * Get all transactions in period as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionDTO> getTransactionsInPeriodAsDTO(LocalDateTime start, LocalDateTime end) {
+        List<SalesTransaction> transactions = salesRepository.findTransactionsInPeriod(start, end);
+        return dtoConverter.convertToDTO(transactions);
+    }
+
+    // Original methods for entity operations
     public List<SalesTransaction> getAllTransactions() {
         return salesRepository.findAll();
     }
@@ -64,9 +124,53 @@ public class SalesService {
         if (transaction.getTransactionId() == null || transaction.getTransactionId().isEmpty()) {
             transaction.setTransactionId("TRX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
+
+        // Check if customer is present
+        if (transaction.getCustomer() == null) {
+            throw new IllegalArgumentException("Customer is required for transactions. Customer cannot be null.");
+        }
+
+        // Set initial transaction values
         transaction.setCreationTime(LocalDateTime.now());
         transaction.setStatus(TransactionStatus.DRAFT);
-        return salesRepository.save(transaction);
+
+        // Set default payment method if not provided
+        if (transaction.getPaymentMethod() == null) {
+            transaction.setPaymentMethod(PaymentMethod.CASH);
+        }
+
+        if (transaction.getAmountPaid() == null) {
+            transaction.setAmountPaid(BigDecimal.ZERO);
+        }
+
+        // Ensure tax rate is set
+        if (transaction.getTaxRate() == null) {
+            transaction.setTaxRate(BigDecimal.ZERO);
+        }
+
+        // Save the transaction
+        SalesTransaction savedTransaction = salesRepository.save(transaction);
+
+        // Process transaction items if provided
+        if (transaction.getItems() != null && !transaction.getItems().isEmpty()) {
+            for (TransactionItem item : transaction.getItems()) {
+                // Make sure the item reference is set
+                if (item.getItem() == null) {
+                    throw new IllegalArgumentException("Item reference cannot be null for transaction items");
+                }
+
+                // Set the reference to the saved transaction
+                item.setSalesTransaction(savedTransaction);
+
+                // Set default values if missing
+                if (item.getDiscountAmount() == null) {
+                    item.setDiscountAmount(BigDecimal.ZERO);
+                }
+            }
+        }
+
+        // Save again with the updated items
+        return salesRepository.save(savedTransaction);
     }
 
     @Transactional
