@@ -22,7 +22,7 @@ public class PurchaseOrder {
 
     private String poId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 
