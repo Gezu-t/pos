@@ -16,6 +16,7 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
+    open-in-view: false
 
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
@@ -23,12 +24,13 @@ spring:
 
   security:
     filter:
-      order: 10
+      order: -100 # Make sure the security filter is applied before the actuator filters
 
 logging:
   level:
     org.springframework: INFO
     com.business.pos: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE  # Logs SQL parameters
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
