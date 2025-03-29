@@ -1,19 +1,24 @@
 package com.bin.pos.controller;
 
+import com.bin.pos.dal.dto.OrderTransactionDTO;
 import com.bin.pos.dal.model.OrderStatus;
 import com.bin.pos.dal.model.OrderTransaction;
 import com.bin.pos.service.OrderService;
+import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -26,10 +31,16 @@ public class OrderController {
         this.orderService = orderService;
     }
 
+
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<List<OrderTransaction>> getAllOrders() {
-        return ResponseEntity.ok(orderService.getAllOrders());
+    public ResponseEntity<List<OrderTransactionDTO>> getAllOrders() {
+        List<OrderTransactionDTO> orderDTOs = orderService.getAllOrders()
+                .stream()
+                .map(OrderTransactionDTO::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(orderDTOs);
     }
 
     @GetMapping("/{id}")
@@ -42,13 +53,15 @@ public class OrderController {
 
     @GetMapping("/by-order-id/{orderId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<OrderTransaction> getOrderByOrderId(@PathVariable String orderId) {
+    public ResponseEntity<OrderTransactionDTO> getOrderByOrderId(@PathVariable String orderId) {
         if (orderId == null || orderId.equals("undefined") || orderId.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        return orderService.getOrderByOrderId(orderId)
+
+        Optional<OrderTransaction> orderOpt = orderService.getOrderByOrderId(orderId);
+        return orderOpt.map(OrderTransactionDTO::new)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/customer/{customerId}")
@@ -143,6 +156,7 @@ public class OrderController {
 
     @PutMapping("/by-order-id/{orderId}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
+    @Transactional
     public ResponseEntity<OrderTransaction> updateOrderStatusByOrderId(
             @PathVariable String orderId,
             @RequestParam OrderStatus status) {
@@ -150,9 +164,14 @@ public class OrderController {
             return ResponseEntity.badRequest().build();
         }
         OrderTransaction updated = orderService.updateOrderStatusByOrderId(orderId, status);
-        return updated != null ?
-                ResponseEntity.ok(updated) :
-                ResponseEntity.notFound().build();
+
+        if (updated != null) {
+            // Force initialization of the items collection
+            updated.getItems().size();
+            return ResponseEntity.ok(updated);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PutMapping("/{id}/tracking")

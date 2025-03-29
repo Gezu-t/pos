@@ -34,7 +34,7 @@ public class OrderService {
     }
 
     public List<OrderTransaction> getAllOrders() {
-        return orderRepository.findAll();
+        return orderRepository.findAllWithCustomer();
     }
 
     public Optional<OrderTransaction> getOrderById(Long id) {
@@ -42,7 +42,7 @@ public class OrderService {
     }
 
     public Optional<OrderTransaction> getOrderByOrderId(String orderId) {
-        return orderRepository.findByOrderId(orderId);
+        return orderRepository.findByOrderIdWithCustomer(orderId);
     }
 
     public List<OrderTransaction> getOrdersByCustomer(String customerId) {
@@ -64,8 +64,19 @@ public class OrderService {
             order.setOrderId("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
 
+        // Set creation timestamps
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING);
+
+        // Process order items if they exist
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            for (OrderItem item : order.getItems()) {
+                item.setOrder(order); // Set bidirectional relationship
+            }
+        }
+
+        // Set order total amounts
+        recalculateOrderTotals(order);
 
         return orderRepository.save(order);
     }

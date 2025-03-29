@@ -33,4 +33,10 @@ public interface OrderRepository extends JpaRepository<OrderTransaction, Long> {
     @Query("SELECT COUNT(o) FROM OrderTransaction o WHERE o.orderDate BETWEEN :startDate AND :endDate")
     Long countOrdersInPeriod(@Param("startDate") LocalDateTime startDate,
                              @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT o FROM OrderTransaction o LEFT JOIN FETCH o.customer")
+    List<OrderTransaction> findAllWithCustomer();
+
+    @Query("SELECT o FROM OrderTransaction o LEFT JOIN FETCH o.customer LEFT JOIN FETCH o.items WHERE o.orderId = :orderId")
+    Optional<OrderTransaction> findByOrderIdWithCustomer(@Param("orderId") String orderId);
 }
