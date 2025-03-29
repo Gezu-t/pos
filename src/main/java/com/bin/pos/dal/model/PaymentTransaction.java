@@ -20,7 +20,7 @@ public class PaymentTransaction {
 
     private String paymentId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sales_transaction_id")
     private SalesTransaction salesTransaction;
 
