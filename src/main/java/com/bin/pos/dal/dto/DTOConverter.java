@@ -1,4 +1,4 @@
-package com.bin.pos.util;
+package com.bin.pos.dal.dto;
 
 import com.bin.pos.dal.dto.CustomerDTO;
 import com.bin.pos.dal.dto.ItemDTO;
@@ -127,9 +127,10 @@ public class DTOConverter {
         ItemDTO dto = new ItemDTO();
         dto.setId(item.getId());
         dto.setItemId(item.getItemId());
-        dto.setName(item.getName());
+        // Get name and category from the Product
+        dto.setName(item.getProduct() != null ? item.getProduct().getName() : "Unknown");
+        dto.setCategory(item.getProduct() != null ? item.getProduct().getCategory() : "Uncategorized");
         dto.setPrice(item.getPrice());
-        dto.setCategory(item.getCategory());
         dto.setQuantity(item.getQuantity());
         dto.setUnit(item.getUnit());
 

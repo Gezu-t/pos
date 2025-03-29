@@ -1,11 +1,11 @@
 package com.bin.pos.service;
 
+import com.bin.pos.dal.dto.DTOConverter;
 import com.bin.pos.dal.dto.TransactionDTO;
 import com.bin.pos.dal.model.*;
 import com.bin.pos.dal.repository.InventoryRepository;
 import com.bin.pos.dal.repository.PaymentRepository;
 import com.bin.pos.dal.repository.SalesRepository;
-import com.bin.pos.util.DTOConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
